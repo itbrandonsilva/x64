@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir -p out
+
 OPTIONS="-masm=intel -fno-asynchronous-unwind-tables -fverbose-asm"
 
 build () {

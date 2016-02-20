@@ -1,11 +1,6 @@
 #!/bin/bash
 
-# nasm -f elf64 test.S
-
-# WARNING: So that GCC doesn't pipe the file through CPP (processing 
-# macros, etc), the extension must be .s (lowercase) not .S (uppercase)
-# https://github.com/redragonx/plzasm/blob/master/libs/assemblyLib.php
-# gcc -m64 -masm=intel -c test.s -o test.o
+mkdir -p out
 
 nasm -O0 test.S -o out/test.o
 ndisasm -b 64 out/test.o

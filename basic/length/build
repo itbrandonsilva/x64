@@ -1,6 +1,6 @@
 #!/bin/bash
 
+mkdir -p out
+
 yasm -f elf64 write.S -o out/write.o
-# Need to figure out why this doesn't work...
-#ld -o ./out/write write.o -lc
 gcc -o out/write out/write.o
