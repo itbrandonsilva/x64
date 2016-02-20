@@ -1,0 +1,5 @@
+#!/bin/bash
+
+nasm -f elf64 -o out/switch.o switch.S
+gcc out/switch.o -o out/switch
+out/switch

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+mkdir -p out
+
+
+#yasm -f elf64 -g dwarf2 -l main.lst main.asm
+nasm -f elf64 main.S -o out/main.o
+gcc out/main.o -o out/main -L/usr/lib -lSDL2 -lSDL2_ttf
+
+ln -sf ../../character.bmp out/character.bmp
+ln -sf ../../FreeMonoBold.ttf out/FreeMonoBold.ttf
+
+# Worked last time I tried it
+#yasm -f elf64 -g dwarf2 -l load.lst load.asm
+#gcc load.o -o ./out/load -L/usr/lib -lSDL2
+
+# Need to figure out why this doesn't work...
+#ld -o ./out/write write.o -lc

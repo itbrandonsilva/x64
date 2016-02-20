@@ -1,0 +1,8 @@
+#!/bin/bash
+
+nasm long.S -f bin -o boot.bin
+rm disk.img
+dd if=/dev/zero of=disk.img bs=512 count=40960
+dd if=boot.bin of=disk.img
+
+# qemu-system-x86_64 -drive file=disk.img,index=0,media=disk

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+OPTIONS="-masm=intel -fno-asynchronous-unwind-tables -fverbose-asm"
+
+build () {
+    gcc -S -o out/$1.S $1.c $OPTIONS
+    gcc -c out/$1.S -o out/$1.o
+    gcc out/$1.o -o out/$1 -L/usr/lib -lSDL2;
+}
+
+build test
+build main
+
+ln -sf ../../character.bmp out/character.bmp
+
+#gcc -S -o out/test.S test.c $OPTIONS
+#gcc -c out/test.S -o out/test.o
+#gcc out/test.o -o out/test -L/usr/lib -lSDL2;
+#
+#gcc -S -o out/main.S main.c $OPTIONS
+#gcc -c out/main.S -o out/main.o
+#gcc out/main.o -o out/main -L/usr/lib -lSDL2;
