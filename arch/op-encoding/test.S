@@ -32,6 +32,7 @@ or BYTE [NUM], 1
 mov rax, 1
 neg DWORD [NUM]
 xor rax, rax
+ret
 
 ;mov rax, rax
 ;mov rdx, rdx

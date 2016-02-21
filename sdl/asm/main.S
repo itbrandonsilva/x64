@@ -16,6 +16,7 @@ struc SDL_Rect
 endstruc
 
 segment .data
+    SDL_INIT_VIDEO      dd 0x20
     SDL_QUIT            dd 0x100
     SDL_KEYDOWN         dd 0x300
     SDL_KEYUP           dd 0x301
@@ -31,6 +32,7 @@ segment .data
     SCREEN_HEIGHT       dd 480
     WINDOW              dq 1
     SCREEN_SURFACE      dq 1
+    LOGO_SURFACE        dq 1
     SCORE_TEXT_SURFACE  dq 1
     EVENT               times 56 db 1
     G_FONT              dq 1
@@ -62,17 +64,20 @@ segment .data
     INT_MSG             db `Value: %d\n`,0
     STR_MSG             db `%s\n`,0
     PTR_MSG             db `Pointer: %p\n`,0
+    RB                  db `rb`,0
+    NL                  db `\n`,0
     NOINIT              db `SDL could not initialize. SDL_Error: %s\n`,0
     TITLE               db `SDL Tutorial`,0
     ERRNOCREATE         db `Window could not be created. SDL_Error: %s\n`,0
     NOLOADBMP           db `Could not load image...`,0
     spritePath          db `out/character.bmp`,0
-    fontPath            db `FreeMonoBold.ttf`,0
+    logoPath            db `out/sdl-logo.bmp`,0
+    fontPath            db `out/FreeMonoBold.ttf`,0
     EXIT_MSG            db `Exiting...\n\n`,0
     SCORE_TEXT          db `%d - %d`,0
 
 
-extern printf, sprintf, getcwd, rand, srand, time
+extern exit, printf, sprintf, getcwd, rand, srand, time
 extern SDL_CreateWindow, SDL_Init, SDL_GetError, SDL_GetWindowSurface, SDL_MapRGB
 extern SDL_FillRect, SDL_UpdateWindowSurface, SDL_Delay, SDL_DestroyWindow, SDL_Quit
 extern SDL_RWFromFile, SDL_LoadBMP_RW, SDL_UpperBlit, SDL_PollEvent, SDL_FreeSurface
@@ -81,9 +86,9 @@ extern TTF_Init, TTF_Quit, TTF_OpenFont, TTF_RenderText_Solid ;, TTF_GetError (I
 global main
 segment .text
 main:
-    push    rbp
+    push rbp
     mov rbp, rsp
-    sub rsp, 32
+    sub rsp, 64
 
 	; mov	DWORD PTR [rbp-20], edi	# argc, argc
 	; mov	QWORD PTR [rbp-32], rsi	# args, args
@@ -111,15 +116,11 @@ main:
     ; Initialize BALL_RECT
     call GAME_resetBall
 
-    call GAME_initBallSpeed
-
     xor edi, edi
-    mov rdi, 32 ; Brandon: SDL_INIT_VIDEO
+    mov rdi, [SDL_INIT_VIDEO]
     call    SDL_Init
     cmp rax, 0
     jl .error
-    ; How does "test" work?
-    ; test rax, rax
 
     call TTF_Init
     cmp rax, 0
@@ -129,8 +130,10 @@ main:
     mov rax, [G_FONT]
     cmp rax, 0
     jz .error
-    ;jmp .error
 
+    call GAME_loadSurfaces
+    cmp rax, 0
+    jz .error
 
 .initw:
     mov eax, [SCREEN_WIDTH]
@@ -159,15 +162,11 @@ main:
     jz .exit
 
     call GAME_handleInputs
+    call GAME_updateBall
 
     mov edi, 20
     call SDL_Delay
     call GAME_draw
-
-    ;mov rdi, INT_MSG
-    ;xor rsi, rsi
-    ;mov sil, [INPUTS]
-    ;call printf
 
 .events:
     cmp BYTE [STATUS], 1
@@ -211,49 +210,29 @@ main:
     call SDL_Quit
     call TTF_Quit
 
-    leave
     xor rax, rax
-    ret
+    leave
+    call exit
 
 GAME_exit:  
-    push rbp
-    mov rbp, rsp
-
     mov rdi, EXIT_MSG
     xor rsi, rsi
     call printf
-
     mov BYTE [STATUS], 1
-
-    leave
     ret
 
 GAME_keyDown:
-    push rbp
-    mov rbp, rsp
-
     call GAME_mapKey
     or BYTE [INPUTS], al
-
-    leave
     ret
 
 GAME_keyUp:
-    push rbp
-    mov rbp, rsp
-
     call GAME_mapKey
     not al
     and BYTE [INPUTS], al
-
-    leave
     ret
 
-
 GAME_mapKey:
-    push rbp
-    mov rbp, rsp
-
     cmp DWORD [SDLK_UP], edi
     jnz $+4
     mov al,8
@@ -265,14 +244,9 @@ GAME_mapKey:
     cmp DWORD [SDLK_ESCAPE], edi
     jnz $+7
     call GAME_exit
-
-    leave
     ret
 
 GAME_handleInputs:
-    push rbp    
-    mov rbp, rsp
-
     xor r9, r9
     mov r9b, [PADDLE_SPEED]
 
@@ -287,21 +261,26 @@ GAME_handleInputs:
     cmp r8, 0
     jz $+10
     sub [P1_Y], r9d
+    xor rax, rax
+    ret
 
+GAME_updateBall:
     mov edx, [B_VX]
     add [BALL_RECT+SDL_Rect.x], edx
     mov edx, [B_VY]
     add [BALL_RECT+SDL_Rect.y], edx
 
     cmp DWORD [BALL_RECT+SDL_Rect.x], 0
-    jge $+9
-    neg DWORD [B_VX]
+    jge $+12
+    call GAME_resetBall
+    call GAME_scoreP2
 
     mov eax, [SCREEN_WIDTH]
     sub eax, [BALL_RECT+SDL_Rect.w]
     cmp DWORD [BALL_RECT+SDL_Rect.x], eax
-    jle $+9
-    neg DWORD [B_VX]
+    jle $+12
+    call GAME_resetBall
+    call GAME_scoreP1
     
     cmp DWORD [BALL_RECT+SDL_Rect.y], 0
     jge $+9
@@ -312,25 +291,31 @@ GAME_handleInputs:
     cmp DWORD [BALL_RECT+SDL_Rect.y], eax
     jle $+9
     neg DWORD [B_VY]
+    xor rax, rax
+    ret
 
-    leave
+GAME_scoreP1:
+    inc BYTE [P1_SCORE]
+    ret
+
+GAME_scoreP2:
+    inc BYTE [P2_SCORE]
     ret
 
 GAME_draw:
-    push    rbp
-    mov rbp, rsp
+    and rsp, -16
 
     mov rdi, [SCREEN_SURFACE]
     mov rdi, [rdi+8]
     mov rsi, 0
     mov rdx, 0
     mov rcx, 0
-    call    SDL_MapRGB
+    call SDL_MapRGB
 
-    mov rdx, rax
     mov rdi, [SCREEN_SURFACE]
-    mov rsi, 0
-    call    SDL_FillRect
+    xor rsi, rsi
+    mov rdx, rax
+    call SDL_FillRect
 
     mov edi, [P1_X]
     mov esi, [P1_Y]
@@ -342,18 +327,19 @@ GAME_draw:
 
     call GAME_drawBall
     call GAME_drawText
+    call GAME_drawLogo
 
     mov rax, [WINDOW]
     mov rdi, rax
     xor rsi, rsi
-    call    SDL_UpdateWindowSurface
+    call SDL_UpdateWindowSurface
 
-    leave
+    add rsp, 8
+    xor rax, rax
     ret
 
 GAME_drawPaddle:
-    push    rbp
-    mov rbp, rsp
+    and rsp, -16
 
     mov [PADDLE_RECT+SDL_Rect.x], edi
     mov [PADDLE_RECT+SDL_Rect.y], esi
@@ -363,20 +349,19 @@ GAME_drawPaddle:
     mov rsi, 255
     mov rdx, 255
     mov rcx, 255
-    call    SDL_MapRGB
+    call SDL_MapRGB
 
     mov rdi, [SCREEN_SURFACE]
     mov rsi, PADDLE_RECT
     mov rdx, rax
     call SDL_FillRect
 
+    add rsp, 8
     xor rax, rax
-    leave
     ret
 
 GAME_drawBall:
-    push rbp
-    mov rbp, rsp
+    and rsp, -16
 
     mov rdi, [SCREEN_SURFACE]
     mov rdi, [rdi+8]
@@ -391,15 +376,15 @@ GAME_drawBall:
     call SDL_FillRect
 
     xor rax, rax
-    leave
+    add rsp, 8
     ret
 
 GAME_drawText:
     push rbp
     mov rbp, rsp
-    sub rsp, 400
+    sub rsp, 512
 
-    lea rdi, [rbp-400]
+    lea rdi, [rbp-512]
     mov rsi, SCORE_TEXT
     xor rdx, rdx
     xor rcx, rcx
@@ -407,31 +392,18 @@ GAME_drawText:
     mov cl, [P2_SCORE]
     call sprintf
 
-    ;xor rax, rax
-    ;mov rdi, STR_MSG
-    ;lea rsi, [rbp-400]
-    ;xor rdx, rdx
-    ;call printf
-
     mov rdi, [G_FONT]
-    lea rsi, [rbp-400]
+    lea rsi, [rbp-512]
     mov rdx, [G_FONT_COLOR]
     call TTF_RenderText_Solid
 
     mov [rbp-8], rax
 
-    xor rdx, rdx
-    mov eax, [SCREEN_WIDTH]
-    mov esi, 2
-    idiv esi
+    call GAME_getHalfScreenWidth
     mov r8d, eax
 
-    mov rsi, [rbp-8]
-    xor rdx, rdx
-    mov eax, [rsi+16]
-    mov esi, 2
-    idiv esi
-
+    mov rdi, [rbp-8]
+    call GAME_getHalfSurfaceWidth
     sub r8d, eax
 
     mov [rbp-24], r8d
@@ -449,18 +421,35 @@ GAME_drawText:
     leave
     ret
 
+GAME_getHalfScreenWidth:
+    xor rdx, rdx
+    mov eax, [SCREEN_WIDTH]
+    mov esi, 2
+    idiv esi
+    ret
+
+GAME_getHalfSurfaceWidth:
+    xor rdx, rdx
+    mov eax, [rdi+16]
+    mov esi, 2
+    idiv esi
+    ret
+
 GAME_initBallSpeed:
     push rbp
     mov rbp, rsp
-    sub rsp, 1
+    sub rsp, 16
 
     mov al, [BALL_SPEED]
-    mov [rbp-1], al
+    mov [rbp-16], al
+
+    mov DWORD [B_VX], 0
+    mov DWORD [B_VY], 0
 
     call rand
     and rax, 1
     cmp rax, 0
-    mov bl, [rbp-1]
+    mov bl, [rbp-16]
     jz $+9
     add [B_VX], ebx
     jnz $+9
@@ -469,17 +458,17 @@ GAME_initBallSpeed:
     call rand
     and rax, 1
     cmp rax, 0
-    mov bl, [rbp-1]
+    mov bl, [rbp-16]
     jz $+9
     add [B_VY], ebx
     jnz $+9
     sub [B_VY], ebx
 
-    xor rax, rax ; Segfaults without this?
+    xor al, al
     mov rdi, INT_MSG
     mov esi, [B_VX]
     call printf
-    xor rax, rax ; Segfaults without this?
+    xor al, al
     mov rdi, INT_MSG
     mov esi, [B_VY]
     call printf
@@ -489,59 +478,65 @@ GAME_initBallSpeed:
     ret
 
 GAME_resetBall:
-    push rbp
-    mov rbp, rsp
-
     mov DWORD [BALL_RECT+SDL_Rect.x], 320
     mov DWORD [BALL_RECT+SDL_Rect.y], 240
     mov DWORD [BALL_RECT+SDL_Rect.w], 15
     mov DWORD [BALL_RECT+SDL_Rect.h], 15
-
-    leave
+    call GAME_initBallSpeed
+    xor rax, rax
     ret
 
 GAME_initFont:
-    push rbp
-    mov rbp, rsp
-
     mov rdi, fontPath
     mov rsi, 30
     call TTF_OpenFont
-
     mov [G_FONT], rax
+    xor rax, rax
+    ret
+
+GAME_drawLogo:
+    push rbp
+    mov rbp, rsp
+    sub rsp, SDL_Rect_size
+
+    call GAME_getHalfScreenWidth
+    mov r8, rax
+    mov rdi, [LOGO_SURFACE]
+    call GAME_getHalfSurfaceWidth
+    mov r9, rax
+    sub r8, r9
+
+    mov DWORD [rsp+SDL_Rect.x], r8d
+    mov DWORD [rsp+SDL_Rect.y], 35
+    mov DWORD [rsp+SDL_Rect.w], 0
+    mov DWORD [rsp+SDL_Rect.h], 0
+
+;   extern DECLSPEC int SDLCALL SDL_UpperBlit (SDL_Surface * src, const SDL_Rect * srcrect, SDL_Surface * dst, SDL_Rect * dstrect)
+    mov rdi, [LOGO_SURFACE]
+    mov rsi, 0
+    mov rdx, [SCREEN_SURFACE]
+    mov rcx, rsp
+    call SDL_UpperBlit
 
     leave
     ret
 
-;    jmp .LOAD_BMP
+GAME_loadSurfaces:
+    and rsp, -16
 
-;.LOAD_BMP:
-;    mov esi, rb
-;    mov edi, spritePath
-;    call SDL_RWFromFile
-;    mov rsi, 1;
-;    mov rdi, rax;
-;    call SDL_LoadBMP_RW
-;    cmp rax, 0
-;    je .L17
-;    jmp .L40
-;.L17:
-;    call SDL_GetError
-;    mov rdi, rax
-;    xor eax, eax
-;    call printf
-;    mov rdi, NL
-;    call printf
-;    jmp .exit
+    mov esi, RB
+    mov edi, logoPath
+    call SDL_RWFromFile
+    mov rsi, 1;
+    mov rdi, rax;
+    call SDL_LoadBMP_RW
 
-;        extern DECLSPEC int SDLCALL SDL_UpperBlit
-;            (SDL_Surface * src, const SDL_Rect * srcrect,
-;             SDL_Surface * dst, SDL_Rect * dstrect);
+    add rsp, 8
 
-;.L40:
-;    mov rdi, rax
-;    mov rsi, 0
-;    mov rdx, [SCREEN_SURFACE]
-;    mov rcx, 0
-;    call SDL_UpperBlit
+    cmp rax, 0
+    jnz $+3
+    ret
 
+    mov [LOGO_SURFACE], rax
+    mov rax, 1
+    ret

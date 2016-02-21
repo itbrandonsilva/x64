@@ -6,4 +6,5 @@ nasm -f elf64 main.S -o out/main.o
 gcc out/main.o -o out/main -L/usr/lib -lSDL2 -lSDL2_ttf
 
 ln -sf ../../character.bmp out/character.bmp
+ln -sf ../../sdl-logo.bmp out/sdl-logo.bmp
 ln -sf ../../FreeMonoBold.ttf out/FreeMonoBold.ttf
