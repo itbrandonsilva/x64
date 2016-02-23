@@ -1,7 +1,8 @@
 #!/bin/bash
 
-nasm long.S -f bin -o boot.bin
-rm disk.img
+rm disk.img; rm boot.bin;
+nasm print16.S -f bin -o boot.bin
+# nasm print.S -f bin -o disk.img
 dd if=/dev/zero of=disk.img bs=512 count=40960
 dd if=boot.bin of=disk.img
 

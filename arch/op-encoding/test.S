@@ -14,6 +14,7 @@ mov al, 4
 call FAKE
 LBL:
 FAKE:
+nop
 ret
 jz FAKE
 jle FAKE
