@@ -1,3 +1,5 @@
 out
 boot.bin
 disk.img
+bootloader.flp
+bootloader.bin
